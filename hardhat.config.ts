@@ -5,14 +5,27 @@ import "solidity-coverage";
 import "@nomiclabs/hardhat-solhint";
 import "@primitivefi/hardhat-dodoc";
 import "hardhat-gas-reporter";
+import dotenv from "dotenv";
+dotenv.config();
 
 const config: HardhatUserConfig = {
+  defaultNetwork: "goerli",
+  networks: {
+    goerli: {
+      gas: 120000000,
+      blockGasLimit: 0x1fffffffffffff,
+      url: "https://goerli.infura.io/v3/58bd24c840494b04b433c81913be117b",
+      accounts: {
+        mnemonic: process.env.MNEMONIC,
+      },
+    },
+  },
   solidity: {
     version: "0.8.17",
     settings: {
       optimizer: {
         enabled: true,
-        runs: 200,
+        runs: 100,
       },
     },
   },

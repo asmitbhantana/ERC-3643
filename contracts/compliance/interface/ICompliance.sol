@@ -85,5 +85,5 @@ interface ICompliance {
         address _from,
         address _to,
         uint256 _amount
-    ) external view returns (bool);
+    ) external returns (bool);
 }

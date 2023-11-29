@@ -3,6 +3,10 @@ import { ethers } from "hardhat";
 import OnchainID from "@onchain-id/solidity";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { AGENT_ROLE, TOKEN_ROLE } from "../utils";
+import dotenv from "dotenv";
+dotenv.config();
+
+const TAX_TOKEN = "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984";
 
 export async function deployIdentityProxy(
   implementationAuthority: Contract["address"],
@@ -13,12 +17,18 @@ export async function deployIdentityProxy(
     OnchainID.contracts.IdentityProxy.abi,
     OnchainID.contracts.IdentityProxy.bytecode,
     signer
-  ).deploy(implementationAuthority, managementKey);
+  ).deploy(implementationAuthority, managementKey, {
+    gasLimit: BigNumber.from("10000000"),
+  });
+
+  console.log("identity.address", identity.address);
 
   return ethers.getContractAt("Identity", identity.address, signer);
 }
 
 export async function deployFullSuiteFixture() {
+  const wallets = await ethers.getSigners();
+
   const [
     deployer,
     tokenIssuer,
@@ -30,9 +40,23 @@ export async function deployFullSuiteFixture() {
     charlieWallet,
     davidWallet,
     anotherWallet,
-  ] = await ethers.getSigners();
-  const claimIssuerSigningKey = ethers.Wallet.createRandom();
-  const aliceActionKey = ethers.Wallet.createRandom();
+  ] = wallets;
+
+  console.log("wallets", wallets[0]);
+
+  const claimIssuerSigningKey = ethers.Wallet.fromMnemonic(
+    process.env.MNEMONIC,
+    "m/44'/60'/0'/0/12"
+  );
+
+  console.log("claimIssuerSigningKey.address", claimIssuerSigningKey.address);
+
+  const aliceActionKey = ethers.Wallet.fromMnemonic(
+    process.env.MNEMONIC,
+    "m/44'/60'/0'/0/13"
+  );
+
+  console.log("aliceActionKey.address", aliceActionKey.address);
 
   const identityImplementation = await new ethers.ContractFactory(
     OnchainID.contracts.Identity.abi,
@@ -40,26 +64,42 @@ export async function deployFullSuiteFixture() {
     deployer
   ).deploy(deployer.address, true);
 
+  console.log("identityImplementation.address", identityImplementation.address);
+
   const identityImplementationAuthority = await new ethers.ContractFactory(
     OnchainID.contracts.ImplementationAuthority.abi,
     OnchainID.contracts.ImplementationAuthority.bytecode,
     deployer
   ).deploy(identityImplementation.address);
 
+  console.log(
+    "identityImplementationAuthority.address",
+    identityImplementationAuthority.address
+  );
+
   const ClaimTopicsRegistry = await ethers.getContractFactory(
     "ClaimTopicsRegistry"
   );
   const claimTopicsRegistry = await ClaimTopicsRegistry.deploy();
+
+  console.log("claimTopicsRegistry.address", claimTopicsRegistry.address);
 
   const ClaimIssuersRegistry = await ethers.getContractFactory(
     "ClaimIssuersRegistry"
   );
   const claimIssuersRegistry = await ClaimIssuersRegistry.deploy();
 
+  console.log("claimIssuersRegistry.address", claimIssuersRegistry.address);
+
   const IdentityRegistryStorage = await ethers.getContractFactory(
     "IdentityRegistryStorage"
   );
   const identityRegistryStorage = await IdentityRegistryStorage.deploy();
+
+  console.log(
+    "identityRegistryStorage.address",
+    identityRegistryStorage.address
+  );
 
   const IdentityRegistry = await ethers.getContractFactory("IdentityRegistry");
   const identityRegistry = await IdentityRegistry.deploy(
@@ -68,16 +108,23 @@ export async function deployFullSuiteFixture() {
     identityRegistryStorage.address
   );
 
+  console.log("identityRegistry.address", identityRegistry.address);
+
   const basicCompliance = await ethers.deployContract(
     "BasicCompliance",
+    [TAX_TOKEN],
     deployer
   );
+
+  console.log("basicCompliance.address", basicCompliance.address);
 
   const tokenOID = await deployIdentityProxy(
     identityImplementationAuthority.address,
     tokenIssuer.address,
     deployer
   );
+
+  console.log("tokenOID.address", tokenOID.address);
 
   const tokenName = "ERC-3643";
 
@@ -92,23 +139,47 @@ export async function deployFullSuiteFixture() {
     tokenName,
     tokenSymbol,
     tokenDecimals,
-    tokenOID.address
+    tokenOID.address,
+    {
+      gasLimit: BigNumber.from("3000000"),
+    }
   );
 
-  await basicCompliance.grantRole(TOKEN_ROLE, token.address);
+  console.log("token.address", token.address);
 
-  await token.grantRole(AGENT_ROLE, tokenAgent.address);
+  await basicCompliance.grantRole(TOKEN_ROLE, token.address, {
+    gasLimit: BigNumber.from("3000000"),
+  });
 
-  await identityRegistryStorage.bindIdentityRegistry(identityRegistry.address);
+  console.log("basic compliance granted token role");
+
+  await token.grantRole(AGENT_ROLE, tokenAgent.address, {
+    gasLimit: BigNumber.from("3000000"),
+  });
+
+  console.log("token granted agent role");
+
+  await identityRegistryStorage.bindIdentityRegistry(identityRegistry.address, {
+    gasLimit: BigNumber.from("10000000"),
+  });
 
   const claimTopics = [ethers.utils.id("CLAIM_TOPIC")];
-  await claimTopicsRegistry.connect(deployer).addClaimTopic(claimTopics[0]);
+
+  console.log("claimTopics");
+
+  await claimTopicsRegistry.connect(deployer).addClaimTopic(claimTopics[0], {
+    gasLimit: BigNumber.from("10000000"),
+  });
+
+  console.log("claimTopicsRegistry");
 
   const claimIssuerContract = await ethers.deployContract(
     "ClaimIssuer",
     [claimIssuer.address],
     claimIssuer
   );
+
+  console.log("claimIssuerContract.address", claimIssuerContract.address);
 
   await claimIssuerContract
     .connect(claimIssuer)
@@ -120,18 +191,27 @@ export async function deployFullSuiteFixture() {
         )
       ),
       3,
-      1
+      1,
+      { gasLimit: BigNumber.from("3000000") }
     );
+
+  console.log("addKey");
 
   await claimIssuersRegistry
     .connect(deployer)
-    .addClaimIssuer(claimIssuerContract.address, claimTopics);
+    .addClaimIssuer(claimIssuerContract.address, claimTopics, {
+      gasLimit: BigNumber.from("3000000"),
+    });
+
+  console.log("claimIssuersRegistry");
 
   const aliceIdentity = await deployIdentityProxy(
     identityImplementationAuthority.address,
     aliceWallet.address,
     deployer
   );
+
+  console.log("aliceIdentity");
 
   await aliceIdentity
     .connect(aliceWallet)
@@ -143,7 +223,8 @@ export async function deployFullSuiteFixture() {
         )
       ),
       2,
-      1
+      1,
+      { gasLimit: BigNumber.from("3000000") }
     );
 
   const bobIdentity = await deployIdentityProxy(
@@ -158,15 +239,20 @@ export async function deployFullSuiteFixture() {
     deployer
   );
 
-  await identityRegistry.grantRole(AGENT_ROLE, tokenAgent.address);
-  await identityRegistry.grantRole(AGENT_ROLE, token.address);
+  await identityRegistry.grantRole(AGENT_ROLE, tokenAgent.address, {
+    gasLimit: BigNumber.from("3000000"),
+  });
+  await identityRegistry.grantRole(AGENT_ROLE, token.address, {
+    gasLimit: BigNumber.from("3000000"),
+  });
 
   await identityRegistry
     .connect(tokenAgent)
     .batchRegisterIdentity(
       [aliceWallet.address, bobWallet.address],
       [aliceIdentity.address, bobIdentity.address],
-      [42, 666]
+      [42, 666],
+      { gasLimit: BigNumber.from("3000000") }
     );
 
   const claimForAlice = {
@@ -199,7 +285,8 @@ export async function deployFullSuiteFixture() {
       claimForAlice.issuer,
       claimForAlice.signature,
       claimForAlice.data,
-      ""
+      "",
+      { gasLimit: BigNumber.from("3000000") }
     );
 
   const claimForBob = {
@@ -232,15 +319,24 @@ export async function deployFullSuiteFixture() {
       claimForBob.issuer,
       claimForBob.signature,
       claimForBob.data,
-      ""
+      "",
+      { gasLimit: BigNumber.from("3000000") }
     );
 
-  await token.grantRole(AGENT_ROLE, tokenAgent.address);
+  await token.grantRole(AGENT_ROLE, tokenAgent.address, {
+    gasLimit: BigNumber.from("300000"),
+  });
 
-  await token.connect(tokenAgent).mint(aliceWallet.address, 1000);
-  await token.connect(tokenAgent).mint(bobWallet.address, 500);
+  await token
+    .connect(tokenAgent)
+    .mint(aliceWallet.address, 1000, { gasLimit: BigNumber.from("3000000") });
+  await token
+    .connect(tokenAgent)
+    .mint(bobWallet.address, 500, { gasLimit: BigNumber.from("3000000") });
 
-  await identityRegistry.grantRole(AGENT_ROLE, tokenAgent.address);
+  await identityRegistry.grantRole(AGENT_ROLE, tokenAgent.address, {
+    gasLimit: BigNumber.from("300000"),
+  });
 
   return {
     accounts: {

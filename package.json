@@ -39,6 +39,7 @@
     "test": "npx hardhat test",
     "coverage": "npx hardhat coverage",
     "build": "npx hardhat compile",
+    "deploy": "npx hardhat --network goerli run scripts/deploy.js",
     "lint:ts": "npx eslint \"**/*.ts\"",
     "lint:ts-fix": "npx eslint \"**/*.ts\" --fix",
     "lint:sol": "npx prettier \"**/*.{json,sol,md}\" --check && npx solhint \"contracts/**/*.sol\"",
@@ -60,7 +61,8 @@
   "homepage": "https://github.com/aboudjem/ERC-3643#README",
   "dependencies": {
     "@onchain-id/solidity": "^2.0.0",
-    "@openzeppelin/contracts": "^4.8.3"
+    "@openzeppelin/contracts": "^4.8.3",
+    "dotenv": "^16.3.1"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^2.0.2",
