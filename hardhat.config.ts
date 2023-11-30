@@ -14,7 +14,7 @@ const config: HardhatUserConfig = {
     goerli: {
       gas: 120000000,
       blockGasLimit: 0x1fffffffffffff,
-      url: "https://goerli.infura.io/v3/58bd24c840494b04b433c81913be117b",
+      url: process.env.RPC,
       accounts: {
         mnemonic: process.env.MNEMONIC,
       },
@@ -27,6 +27,11 @@ const config: HardhatUserConfig = {
         enabled: true,
         runs: 100,
       },
+    },
+  },
+  etherscan: {
+    apiKey: {
+      goerli: process.env.ETHERSCAN_API_KEY,
     },
   },
   dodoc: {

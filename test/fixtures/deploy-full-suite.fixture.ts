@@ -27,6 +27,7 @@ export async function deployIdentityProxy(
 }
 
 export async function deployFullSuiteFixture() {
+  //configure and deploy the tokens
   const wallets = await ethers.getSigners();
 
   const [
@@ -64,6 +65,11 @@ export async function deployFullSuiteFixture() {
     deployer
   ).deploy(deployer.address, true);
 
+  // await run("verify:verify", {
+  //   address: identityImplementation.address,
+  //   constructorArguments: [deployer.address, true],
+  // });
+
   console.log("identityImplementation.address", identityImplementation.address);
 
   const identityImplementationAuthority = await new ethers.ContractFactory(
@@ -76,6 +82,11 @@ export async function deployFullSuiteFixture() {
     "identityImplementationAuthority.address",
     identityImplementationAuthority.address
   );
+
+  // await run("verify:verify", {
+  //   address: identityImplementationAuthority.address,
+  //   constructorArguments: [identityImplementation.address],
+  // });
 
   const ClaimTopicsRegistry = await ethers.getContractFactory(
     "ClaimTopicsRegistry"
@@ -163,6 +174,7 @@ export async function deployFullSuiteFixture() {
     gasLimit: BigNumber.from("10000000"),
   });
 
+  //configure the claim topics registry
   const claimTopics = [ethers.utils.id("CLAIM_TOPIC")];
 
   console.log("claimTopics");
@@ -205,6 +217,7 @@ export async function deployFullSuiteFixture() {
 
   console.log("claimIssuersRegistry");
 
+  //configure key for action topic on identity
   const aliceIdentity = await deployIdentityProxy(
     identityImplementationAuthority.address,
     aliceWallet.address,
@@ -239,6 +252,7 @@ export async function deployFullSuiteFixture() {
     deployer
   );
 
+  //to register the user on identity registry
   await identityRegistry.grantRole(AGENT_ROLE, tokenAgent.address, {
     gasLimit: BigNumber.from("3000000"),
   });
@@ -255,6 +269,7 @@ export async function deployFullSuiteFixture() {
       { gasLimit: BigNumber.from("3000000") }
     );
 
+  //claiming for alice
   const claimForAlice = {
     data: ethers.utils.hexlify(
       ethers.utils.toUtf8Bytes("Some claim public data.")
@@ -322,6 +337,8 @@ export async function deployFullSuiteFixture() {
       "",
       { gasLimit: BigNumber.from("3000000") }
     );
+
+  //token agent can mint the tokens
 
   await token.grantRole(AGENT_ROLE, tokenAgent.address, {
     gasLimit: BigNumber.from("300000"),
